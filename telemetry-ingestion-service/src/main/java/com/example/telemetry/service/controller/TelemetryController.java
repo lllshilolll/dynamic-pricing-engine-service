@@ -1,33 +1,23 @@
 package com.example.telemetry.service.controller;
 
 import com.example.dto.TelemetryEvent;
-import org.springframework.data.redis.connection.stream.ObjectRecord;
-import org.springframework.data.redis.connection.stream.RecordId;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import com.example.telemetry.service.TelemetryService;
+import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 @RestController
-@RequestMapping("/api/telemetry")
+@AllArgsConstructor
+@RequestMapping(path = "/api/telemetry", produces = MediaType.APPLICATION_JSON_VALUE)
 public class TelemetryController {
 
-    private final ReactiveRedisTemplate<String, Object> redisTemplate;
-
-    public TelemetryController(ReactiveRedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = redisTemplate;
-    }
+    private final TelemetryService telemetryService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public Mono<Void> process(@RequestBody TelemetryEvent event) {
-        // Здесь мы просто возвращаем Mono<Void>
-        // WebFlux сам подпишется на него и отправит ответ 202 Accepted
-        ObjectRecord<String, TelemetryEvent> record = ObjectRecord.create("telemetry:events", event);
-
-        return redisTemplate.opsForStream()
-                .add(record)
-                .map(RecordId::getValue)
-                .then(); // Превращаем результат (длина списка) в Mono<Void>
+    public Mono<String> process(@RequestBody TelemetryEvent event) {
+        return telemetryService.saveTelemetry(event);
     }
 }

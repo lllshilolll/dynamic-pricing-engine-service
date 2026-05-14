@@ -4,3 +4,15 @@ spring:
     redis:
       host: localhost
       port: 6379
+    mongodb:
+      host: localhost
+      port: 27017
+      database: pricing_service
+      username: root
+      password: password123
+      authentication-database: admin
+redis:
+  consumer:
+    topic: 'telemetry:events'
+    group: my-group
+    name: consumer-1
