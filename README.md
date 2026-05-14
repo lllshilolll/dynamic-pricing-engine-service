@@ -1,2 +1,2 @@
-# Dynamic-Pricing-Engine-service
-Real-time Dynamic Pricing Engine Система динамического ценообразования и аналитики
+# dynamic-pricing-engine-service
+Система динамического ценообразования и аналитики
