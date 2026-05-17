@@ -3,7 +3,7 @@
 */*.iml
 # Compiled class file
 *.class
-*/terget/
+*/target/
 # Log file
 *.log
 
