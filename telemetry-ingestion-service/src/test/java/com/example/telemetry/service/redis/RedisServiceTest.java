@@ -1,6 +1,7 @@
 package com.example.telemetry.service.redis;
 
 import com.example.dto.TelemetryEvent;
+import com.example.telemetry.service.exception.RedisOperationException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,10 +43,7 @@ class RedisServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Задаем имя топика через Reflection, так как оно внедряется через @Value
         ReflectionTestUtils.setField(redisService, "topic", "telemetry:events");
-
-        // Инициализируем тестовый объект данных
         sampleEvent = new TelemetryEvent();
         sampleEvent.setDeviceId("device-123");
         sampleEvent.setEventType("HIGH_DEMAND");
@@ -53,56 +51,42 @@ class RedisServiceTest {
 
     @Test
     void saveData_Success_ShouldReturnRecordId() {
-        // Given
         RecordId mockRecordId = RecordId.of("1715712000000-0");
 
-        // Настраиваем цепочку вызовов: redisTemplate.opsForStream() -> streamOperations
         when(redisTemplate.opsForStream()).thenReturn(streamOperations);
         when(streamOperations.add(any(MapRecord.class))).thenReturn(Mono.just(mockRecordId));
 
-        // When
         Mono<String> result = redisService.saveData(sampleEvent);
 
-
-        // Then (Проверка с помощью StepVerifier)
         StepVerifier.create(result)
-                .expectNext("1715712000000-0") // Ожидаем конкретную строку RecordId
-                .verifyComplete();            // Проверяем, что поток успешно завершился
+                .expectNext("1715712000000-0")
+                .verifyComplete();
 
         verify(streamOperations, times(1)).add(any(MapRecord.class));
     }
 
     @Test
-    void saveData_RedisThrowsError_ShouldPropagateException() {
-        // Given
+    void saveData_RedisThrowsError_ShouldMapToRedisOperationException() {
         when(redisTemplate.opsForStream()).thenReturn(streamOperations);
 
         AtomicInteger actualAttemptsCount = new AtomicInteger(0);
 
-        // Вместо thenReturn используем thenAnswer
-        when(streamOperations.add(any(MapRecord.class))).thenAnswer(invocation -> {
-            // Каждый раз, когда Reactor будет перезапускать этот Mono,
-            // сработает doOnSubscribe, и наш счетчик увеличится
-            return Mono.error(new RuntimeException("Redis temporary error"))
-                    .doOnSubscribe(subscription -> actualAttemptsCount.incrementAndGet());
-        });
+        when(streamOperations.add(any(MapRecord.class))).thenAnswer(invocation ->
+                Mono.error(new RuntimeException("Redis temporary error"))
+                        .doOnSubscribe(subscription -> actualAttemptsCount.incrementAndGet())
+        );
 
-        // When
         Mono<String> result = redisService.saveData(sampleEvent);
 
-        // Then
         StepVerifier.withVirtualTime(() -> result)
                 .expectSubscription()
-                .thenAwait(java.time.Duration.ofSeconds(5)) // Прокручиваем время backoff
-                .expectErrorMatches(throwable -> throwable.getClass().getName().contains("RetryExhaustedException"))
+                .thenAwait(java.time.Duration.ofSeconds(5))
+                .expectErrorMatches(throwable -> throwable instanceof RedisOperationException)
                 .verify();
 
-        // Самая главная проверка:
-        // 1 (первый вызов) + 3 (ретрая) = 4 реальных подписки на поток данных!
         Assertions.assertEquals(4, actualAttemptsCount.get(),
                 "Количество попыток (1 старт + ретраи) должно быть строго равно 4");
 
-        // При этом Mockito зафиксирует, что сам конвейер собрался 1 раз
         verify(streamOperations, times(1)).add(any(MapRecord.class));
     }
 }

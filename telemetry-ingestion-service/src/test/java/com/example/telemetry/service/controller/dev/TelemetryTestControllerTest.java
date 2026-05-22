@@ -13,7 +13,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @WebFluxTest(TelemetryTestController.class)
-public class TelemetryTestControllerTest {
+class TelemetryTestControllerTest {
 
     @Autowired
     private WebTestClient webTestClient;
@@ -46,6 +46,5 @@ public class TelemetryTestControllerTest {
                 .expectStatus().is5xxServerError()
                 .expectBody()
                 .jsonPath("$.message").isEqualTo("Внутренняя ошибка сервера");
-
     }
 }

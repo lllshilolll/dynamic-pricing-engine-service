@@ -1,13 +1,12 @@
 package com.example.pricing.service.redis;
 
-import com.example.dto.TelemetryEvent;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.connection.stream.ObjectRecord;
-import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @Service
 public class RedisService {
 
@@ -22,14 +21,13 @@ public class RedisService {
         this.redisTemplate = redisTemplate;
     }
 
-    public Mono<String> saveData(ObjectRecord<String, TelemetryEvent> record) {
-        return redisTemplate.opsForStream()
-                .add(record)
-                .map(RecordId::getValue);
-    }
-
-    public void acknowledge(String messageId) {
-        redisTemplate.opsForStream().acknowledge(topic, group, messageId);
-        System.out.println("messageId " + messageId + " удален");
+    public Mono<Void> acknowledge(String messageId) {
+        return redisTemplate.opsForStream().acknowledge(topic, group, messageId)
+                .doOnSuccess(ack -> log.info("Сообщение {} подтверждено (ACK) в Redis", messageId))
+                .onErrorResume(err -> {
+                    log.error("Ошибка подтверждения сообщения {} в Redis: {}", messageId, err.getMessage());
+                    return Mono.empty();
+                })
+                .then();
     }
 }
