@@ -1,6 +1,9 @@
 package com.example.dto;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @Setter
@@ -8,7 +11,7 @@ import lombok.*;
 @AllArgsConstructor
 public class TelemetryEvent {
     private String deviceId;
-    private String eventType; // e.g., "LOCATION_UPDATE", "ORDER_PLACED"
+    private String eventType;
     private String payload;
     private long timestamp;
 }

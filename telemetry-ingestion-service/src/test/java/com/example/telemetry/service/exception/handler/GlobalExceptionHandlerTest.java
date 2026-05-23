@@ -2,7 +2,7 @@ package com.example.telemetry.service.exception.handler;
 
 import com.example.telemetry.service.TelemetryService;
 import com.example.telemetry.service.exception.BusinessException;
-import com.example.telemetry.service.exception.RedisOperationException;
+import com.example.telemetry.service.exception.KafkaOperationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
@@ -26,7 +26,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void handle_BusinessException_ShouldReturnCorrespondingStatus() {
         when(telemetryService.saveTelemetry(any())).thenReturn(
-                Mono.error(new RedisOperationException(new RuntimeException("Redis down"))));
+                Mono.error(new KafkaOperationException(new RuntimeException("Kafka down"))));
 
         webTestClient.post()
                 .uri("/api/telemetry")
@@ -35,7 +35,7 @@ class GlobalExceptionHandlerTest {
                 .exchange()
                 .expectStatus().isEqualTo(503)
                 .expectBody()
-                .jsonPath("$.message").isEqualTo("Сервис временно недоступен. Проблемы со слоем кэширования/очередей.")
+                .jsonPath("$.message").isEqualTo("Сервис временно недоступен. Ошибка записи в Kafka.")
                 .jsonPath("$.status").isEqualTo(503);
     }
 

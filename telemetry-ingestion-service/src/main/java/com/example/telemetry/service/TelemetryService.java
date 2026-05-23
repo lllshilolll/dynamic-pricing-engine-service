@@ -1,20 +1,20 @@
 package com.example.telemetry.service;
 
 import com.example.dto.TelemetryEvent;
-import com.example.telemetry.service.redis.RedisService;
+import com.example.telemetry.service.kafka.KafkaProducerService;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 @Service
 public class TelemetryService {
 
-    private final RedisService redisService;
+    private final KafkaProducerService kafkaProducerService;
 
-    public TelemetryService(RedisService redisService) {
-        this.redisService = redisService;
+    public TelemetryService(KafkaProducerService kafkaProducerService) {
+        this.kafkaProducerService = kafkaProducerService;
     }
 
     public Mono<String> saveTelemetry(TelemetryEvent telemetryEvent) {
-        return redisService.saveData(telemetryEvent);
+        return kafkaProducerService.publish(telemetryEvent);
     }
 }

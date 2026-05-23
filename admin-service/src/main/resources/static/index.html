@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Pricing — Admin</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1a1a2e; }
+        .header { background: #1a1a2e; color: white; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+        .header h1 { font-size: 20px; font-weight: 600; }
+        .header span { font-size: 12px; opacity: 0.6; }
+        .tabs { display: flex; background: white; border-bottom: 1px solid #e0e0e0; padding: 0 24px; }
+        .tab { padding: 12px 20px; cursor: pointer; font-size: 14px; font-weight: 500; border-bottom: 2px solid transparent; color: #666; }
+        .tab:hover { color: #1a1a2e; }
+        .tab.active { color: #1a1a2e; border-bottom-color: #4f46e5; }
+        .content { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
+        .panel { display: none; }
+        .panel.active { display: block; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 16px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .card-header h2 { font-size: 16px; font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 10px 12px; background: #f8f9fa; font-weight: 600; color: #555; border-bottom: 1px solid #e0e0e0; }
+        td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+        tr:hover td { background: #fafafa; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .badge-active { background: #dcfce7; color: #166534; }
+        .badge-inactive { background: #fee2e2; color: #991b1b; }
+        .badge-exp { background: #dbeafe; color: #1e40af; }
+        .badge-stopped { background: #f3f4f6; color: #6b7280; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; }
+        .btn-primary { background: #4f46e5; color: white; }
+        .btn-primary:hover { background: #4338ca; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-secondary { background: #e5e7eb; color: #374151; }
+        .btn-secondary:hover { background: #d1d5db; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: white; border-radius: 12px; padding: 24px; width: 440px; max-height: 80vh; overflow-y: auto; }
+        .modal h3 { margin-bottom: 16px; font-size: 16px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #555; }
+        .form-group input, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #4f46e5; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .stat-card { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stat-card .label { font-size: 12px; color: #888; margin-bottom: 4px; }
+        .stat-card .value { font-size: 24px; font-weight: 700; }
+        .empty { text-align: center; padding: 40px; color: #999; font-size: 14px; }
+        .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; color: white; font-size: 13px; z-index: 200; display: none; }
+        .toast.show { display: block; }
+        .toast-success { background: #22c55e; }
+        .toast-error { background: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Dynamic Pricing Engine</h1>
+        <span>Admin Panel</span>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-panel="devices">Устройства</div>
+        <div class="tab" data-panel="rules">Правила ценообразования</div>
+        <div class="tab" data-panel="experiments">Эксперименты</div>
+    </div>
+
+    <div class="content">
+        <!-- DEVICES PANEL -->
+        <div class="panel active" id="panel-devices">
+            <div class="stats" id="device-stats"></div>
+            <div class="card">
+                <div class="card-header">
+                    <h2>Устройства</h2>
+                    <button class="btn btn-primary" onclick="showDeviceModal()">+ Добавить</button>
+                </div>
+                <div id="devices-table"></div>
+            </div>
+        </div>
+
+        <!-- RULES PANEL -->
+        <div class="panel" id="panel-rules">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Правила ценообразования</h2>
+                    <button class="btn btn-primary" onclick="showRuleModal()">+ Добавить</button>
+                </div>
+                <div id="rules-table"></div>
+            </div>
+        </div>
+
+        <!-- EXPERIMENTS PANEL -->
+        <div class="panel" id="panel-experiments">
+            <div class="card">
+                <div class="card-header">
+                    <h2>A/B Эксперименты</h2>
+                    <button class="btn btn-primary" onclick="showExperimentModal()">+ Запустить</button>
+                </div>
+                <div id="experiments-table"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEVICE MODAL -->
+    <div class="modal-overlay" id="device-modal">
+        <div class="modal">
+            <h3 id="device-modal-title">Новое устройство</h3>
+            <input type="hidden" id="device-id">
+            <div class="form-group"><label>External ID</label><input id="device-external-id" placeholder="device-001"></div>
+            <div class="form-group"><label>Модель</label><input id="device-model" placeholder="Vendo-300"></div>
+            <div class="form-group"><label>Статус</label>
+                <select id="device-status"><option>ACTIVE</option><option>INACTIVE</option><option>MAINTENANCE</option></select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('device-modal')">Отмена</button>
+                <button class="btn btn-primary" onclick="saveDevice()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RULE MODAL -->
+    <div class="modal-overlay" id="rule-modal">
+        <div class="modal">
+            <h3 id="rule-modal-title">Новое правило</h3>
+            <input type="hidden" id="rule-id">
+            <div class="form-group"><label>Название</label><input id="rule-name" placeholder="Высокий спрос"></div>
+            <div class="form-group"><label>Тип условия</label>
+                <select id="rule-condition-type">
+                    <option value="EVENT_TYPE">EVENT_TYPE</option>
+                    <option value="TIME_RANGE">TIME_RANGE</option>
+                    <option value="REGION">REGION</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Значение условия</label><input id="rule-condition-value" placeholder="HIGH_DEMAND"></div>
+            <div class="form-group"><label>Коэффициент</label><input id="rule-coefficient" type="number" step="0.1" placeholder="1.5"></div>
+            <div class="form-group"><label>Приоритет</label><input id="rule-priority" type="number" placeholder="10"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('rule-modal')">Отмена</button>
+                <button class="btn btn-primary" onclick="saveRule()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXPERIMENT MODAL -->
+    <div class="modal-overlay" id="experiment-modal">
+        <div class="modal">
+            <h3>Новый эксперимент</h3>
+            <div class="form-group"><label>Название</label><input id="exp-name" placeholder="Тест коэффициента"></div>
+            <div class="form-group"><label>Правило A (контроль)</label><select id="exp-rule-a"></select></div>
+            <div class="form-group"><label>Правило B (тест)</label><select id="exp-rule-b"></select></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('experiment-modal')">Отмена</button>
+                <button class="btn btn-primary" onclick="saveExperiment()">Запустить</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API = '';
+
+        // Tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.onclick = () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
+            };
+        });
+
+        function toast(msg, type = 'success') {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast show toast-' + type;
+            setTimeout(() => t.className = 'toast', 3000);
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+        // DEVICES
+        async function loadDevices() {
+            try {
+                const res = await fetch(API + '/api/devices');
+                const devices = await res.json();
+                renderDeviceStats(devices);
+                renderDevicesTable(devices);
+            } catch (e) { document.getElementById('devices-table').innerHTML = '<div class="empty">Не удалось загрузить устройства</div>'; }
+        }
+
+        function renderDeviceStats(devices) {
+            const active = devices.filter(d => d.status === 'ACTIVE').length;
+            const inactive = devices.filter(d => d.status === 'INACTIVE').length;
+            const maint = devices.filter(d => d.status === 'MAINTENANCE').length;
+            document.getElementById('device-stats').innerHTML = `
+                <div class="stat-card"><div class="label">Всего</div><div class="value">${devices.length}</div></div>
+                <div class="stat-card"><div class="label">Активных</div><div class="value" style="color:#22c55e">${active}</div></div>
+                <div class="stat-card"><div class="label">Неактивных</div><div class="value" style="color:#ef4444">${inactive}</div></div>
+                <div class="stat-card"><div class="label">На обслуживании</div><div class="value" style="color:#f59e0b">${maint}</div></div>`;
+        }
+
+        function renderDevicesTable(devices) {
+            if (!devices.length) { document.getElementById('devices-table').innerHTML = '<div class="empty">Нет устройств</div>'; return; }
+            document.getElementById('devices-table').innerHTML = `<table>
+                <thead><tr><th>ID</th><th>External ID</th><th>Модель</th><th>Статус</th><th>Создано</th><th></th></tr></thead>
+                <tbody>${devices.map(d => `<tr>
+                    <td>${d.id}</td><td><code>${d.externalId}</code></td><td>${d.model || '—'}</td>
+                    <td><span class="badge badge-${d.status === 'ACTIVE' ? 'active' : 'inactive'}">${d.status}</span></td>
+                    <td>${d.createdAt ? new Date(d.createdAt).toLocaleDateString('ru') : '—'}</td>
+                    <td><button class="btn btn-secondary btn-sm" onclick='editDevice(${JSON.stringify(d)})'>Изменить</button></td>
+                </tr>`).join('')}</tbody></table>`;
+        }
+
+        function showDeviceModal(device) {
+            document.getElementById('device-modal-title').textContent = device ? 'Редактировать устройство' : 'Новое устройство';
+            document.getElementById('device-id').value = device ? device.id : '';
+            document.getElementById('device-external-id').value = device ? device.externalId : '';
+            document.getElementById('device-model').value = device ? (device.model || '') : '';
+            document.getElementById('device-status').value = device ? device.status : 'ACTIVE';
+            document.getElementById('device-modal').classList.add('show');
+        }
+
+        function editDevice(d) { showDeviceModal(d); }
+
+        async function saveDevice() {
+            const id = document.getElementById('device-id').value;
+            const body = {
+                externalId: document.getElementById('device-external-id').value,
+                model: document.getElementById('device-model').value,
+                status: document.getElementById('device-status').value
+            };
+            try {
+                if (id) { await fetch(API + '/api/devices/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }); }
+                else { await fetch(API + '/api/devices', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }); }
+                closeModal('device-modal'); toast('Устройство сохранено'); loadDevices();
+            } catch (e) { toast('Ошибка сохранения', 'error'); }
+        }
+
+        // RULES
+        async function loadRules() {
+            try {
+                const res = await fetch(API + '/api/rules');
+                const rules = await res.json();
+                renderRulesTable(rules);
+            } catch (e) { document.getElementById('rules-table').innerHTML = '<div class="empty">Не удалось загрузить правила</div>'; }
+        }
+
+        function renderRulesTable(rules) {
+            if (!rules.length) { document.getElementById('rules-table').innerHTML = '<div class="empty">Нет правил</div>'; return; }
+            document.getElementById('rules-table').innerHTML = `<table>
+                <thead><tr><th>ID</th><th>Название</th><th>Условие</th><th>Значение</th><th>Коэффициент</th><th>Приоритет</th><th>Статус</th><th></th></tr></thead>
+                <tbody>${rules.map(r => `<tr>
+                    <td>${r.id}</td><td>${r.name}</td><td><code>${r.conditionType}</code></td><td>${r.conditionValue}</td>
+                    <td><strong>${r.coefficient}</strong></td><td>${r.priority}</td>
+                    <td><span class="badge badge-${r.active ? 'active' : 'inactive'}">${r.active ? 'Активно' : 'Отключено'}</span></td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick='editRule(${JSON.stringify(r)})'>Изменить</button>
+                        ${r.active ? `<button class="btn btn-danger btn-sm" onclick="deactivateRule(${r.id})">Отключить</button>` : ''}
+                    </td>
+                </tr>`).join('')}</tbody></table>`;
+        }
+
+        function showRuleModal(rule) {
+            document.getElementById('rule-modal-title').textContent = rule ? 'Редактировать правило' : 'Новое правило';
+            document.getElementById('rule-id').value = rule ? rule.id : '';
+            document.getElementById('rule-name').value = rule ? rule.name : '';
+            document.getElementById('rule-condition-type').value = rule ? rule.conditionType : 'EVENT_TYPE';
+            document.getElementById('rule-condition-value').value = rule ? rule.conditionValue : '';
+            document.getElementById('rule-coefficient').value = rule ? rule.coefficient : '';
+            document.getElementById('rule-priority').value = rule ? rule.priority : '';
+            document.getElementById('rule-modal').classList.add('show');
+        }
+
+        function editRule(r) { showRuleModal(r); }
+
+        async function saveRule() {
+            const id = document.getElementById('rule-id').value;
+            const body = {
+                name: document.getElementById('rule-name').value,
+                conditionType: document.getElementById('rule-condition-type').value,
+                conditionValue: document.getElementById('rule-condition-value').value,
+                coefficient: parseFloat(document.getElementById('rule-coefficient').value),
+                priority: parseInt(document.getElementById('rule-priority').value),
+                active: true
+            };
+            try {
+                if (id) { await fetch(API + '/api/rules/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }); }
+                else { await fetch(API + '/api/rules', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }); }
+                closeModal('rule-modal'); toast('Правило сохранено'); loadRules();
+            } catch (e) { toast('Ошибка сохранения', 'error'); }
+        }
+
+        async function deactivateRule(id) {
+            try { await fetch(API + '/api/rules/' + id, { method: 'DELETE' }); toast('Правило отключено'); loadRules(); }
+            catch (e) { toast('Ошибка', 'error'); }
+        }
+
+        // EXPERIMENTS
+        async function loadExperiments() {
+            try {
+                const res = await fetch(API + '/api/experiments');
+                const exps = await res.json();
+                renderExperimentsTable(exps);
+            } catch (e) { document.getElementById('experiments-table').innerHTML = '<div class="empty">Не удалось загрузить эксперименты</div>'; }
+        }
+
+        function renderExperimentsTable(exps) {
+            if (!exps.length) { document.getElementById('experiments-table').innerHTML = '<div class="empty">Нет экспериментов</div>'; return; }
+            document.getElementById('experiments-table').innerHTML = `<table>
+                <thead><tr><th>ID</th><th>Название</th><th>Правило A</th><th>Правило B</th><th>Статус</th><th>Начат</th><th>Завершён</th><th></th></tr></thead>
+                <tbody>${exps.map(e => `<tr>
+                    <td>${e.id}</td><td>${e.name}</td>
+                    <td>${e.ruleA ? e.ruleA.name + ' (' + e.ruleA.coefficient + ')' : '—'}</td>
+                    <td>${e.ruleB ? e.ruleB.name + ' (' + e.ruleB.coefficient + ')' : '—'}</td>
+                    <td><span class="badge badge-${e.endedAt ? 'stopped' : 'exp'}">${e.endedAt ? 'Остановлен' : 'Активен'}</span></td>
+                    <td>${e.startedAt ? new Date(e.startedAt).toLocaleDateString('ru') : '—'}</td>
+                    <td>${e.endedAt ? new Date(e.endedAt).toLocaleDateString('ru') : '—'}</td>
+                    <td>${!e.endedAt ? `<button class="btn btn-danger btn-sm" onclick="stopExperiment(${e.id})">Остановить</button>` : ''}</td>
+                </tr>`).join('')}</tbody></table>`;
+        }
+
+        async function showExperimentModal() {
+            try {
+                const res = await fetch(API + '/api/rules');
+                const rules = await res.json();
+                const opts = rules.filter(r => r.active).map(r => `<option value="${r.id}">${r.name} (x${r.coefficient})</option>`).join('');
+                document.getElementById('exp-rule-a').innerHTML = opts;
+                document.getElementById('exp-rule-b').innerHTML = opts;
+                document.getElementById('exp-name').value = '';
+                document.getElementById('experiment-modal').classList.add('show');
+            } catch (e) { toast('Не удалось загрузить правила', 'error'); }
+        }
+
+        async function saveExperiment() {
+            const body = {
+                name: document.getElementById('exp-name').value,
+                ruleA: { id: parseInt(document.getElementById('exp-rule-a').value) },
+                ruleB: { id: parseInt(document.getElementById('exp-rule-b').value) }
+            };
+            try {
+                await fetch(API + '/api/experiments', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                closeModal('experiment-modal'); toast('Эксперимент запущен'); loadExperiments();
+            } catch (e) { toast('Ошибка', 'error'); }
+        }
+
+        async function stopExperiment(id) {
+            try { await fetch(API + '/api/experiments/' + id + '/stop', { method: 'POST' }); toast('Эксперимент остановлен'); loadExperiments(); }
+            catch (e) { toast('Ошибка', 'error'); }
+        }
+
+        // INIT
+        loadDevices(); loadRules(); loadExperiments();
+    </script>
+</body>
+</html>

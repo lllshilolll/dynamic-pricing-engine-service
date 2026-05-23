@@ -1,7 +1,7 @@
 package com.example.telemetry.service;
 
 import com.example.dto.TelemetryEvent;
-import com.example.telemetry.service.redis.RedisService;
+import com.example.telemetry.service.kafka.KafkaProducerService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,34 +16,34 @@ import static org.mockito.Mockito.*;
 class TelemetryServiceTest {
 
     @Mock
-    private RedisService redisService;
+    private KafkaProducerService kafkaProducerService;
 
     @InjectMocks
     private TelemetryService telemetryService;
 
     @Test
-    void saveTelemetry_ShouldDelegateToRedisService() {
+    void saveTelemetry_ShouldDelegateToKafkaProducer() {
         TelemetryEvent event = new TelemetryEvent("device-1", "HIGH_DEMAND", "test", 1000L);
-        when(redisService.saveData(event)).thenReturn(Mono.just("1715712000000-0"));
+        when(kafkaProducerService.publish(event)).thenReturn(Mono.just("42"));
 
         Mono<String> result = telemetryService.saveTelemetry(event);
 
         StepVerifier.create(result)
-                .expectNext("1715712000000-0")
+                .expectNext("42")
                 .verifyComplete();
 
-        verify(redisService, times(1)).saveData(event);
+        verify(kafkaProducerService, times(1)).publish(event);
     }
 
     @Test
-    void saveTelemetry_WhenRedisFails_ShouldPropagateError() {
+    void saveTelemetry_WhenKafkaFails_ShouldPropagateError() {
         TelemetryEvent event = new TelemetryEvent("device-1", "LOW_STOCK", "test", 1000L);
-        when(redisService.saveData(event)).thenReturn(Mono.error(new RuntimeException("Redis error")));
+        when(kafkaProducerService.publish(event)).thenReturn(Mono.error(new RuntimeException("Kafka error")));
 
         Mono<String> result = telemetryService.saveTelemetry(event);
 
         StepVerifier.create(result)
-                .expectErrorMatches(e -> e.getMessage().equals("Redis error"))
+                .expectErrorMatches(e -> e.getMessage().equals("Kafka error"))
                 .verify();
     }
 }

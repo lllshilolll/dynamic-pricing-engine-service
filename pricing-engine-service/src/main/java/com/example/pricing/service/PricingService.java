@@ -1,11 +1,11 @@
 package com.example.pricing.service;
 
 import com.example.dto.TelemetryEvent;
-import com.example.pricing.dto.PriceUpdate;
-import com.example.pricing.service.exception.PersistenceException;
+import com.example.pricing.dto.DeviceState;
+import com.example.pricing.service.clickhouse.ClickHouseWriter;
 import com.example.pricing.service.redis.RedisService;
-import com.example.pricing.service.repository.PricingRepository;
-import lombok.AllArgsConstructor;
+import com.example.pricing.service.repository.DeviceStateRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -14,31 +14,41 @@ import java.time.LocalDateTime;
 
 @Slf4j
 @Component
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class PricingService {
-    private final PricingRepository pricingRepository;
-    private final RedisService redisService;
 
-    public Mono<Void> calculateNewPrice(String messageId, TelemetryEvent event) {
+    private final DeviceStateRepository deviceStateRepository;
+    private final RedisService redisService;
+    private final ClickHouseWriter clickHouseWriter;
+
+    public Mono<Void> calculateNewPrice(TelemetryEvent event) {
         var eventType = event.getEventType();
         var deviceId = event.getDeviceId();
-
         double coefficient = "HIGH_DEMAND".equals(eventType) ? 1.5 : 1.0;
-        PriceUpdate update = new PriceUpdate(null, deviceId, coefficient, LocalDateTime.now());
 
-        return pricingRepository.save(update)
-                .flatMap(saved -> {
-                    log.info("Цена сохранена для {}: коэффициент={}", deviceId, saved.getPriceCoefficient());
-                    return redisService.acknowledge(messageId);
+        return deviceStateRepository.findByDeviceId(deviceId)
+                .map(existing -> {
+                    double priceBefore = existing.getCurrentPrice();
+                    existing.setCurrentPrice(coefficient);
+                    existing.setLastEvent(eventType);
+                    existing.setUpdatedAt(LocalDateTime.now());
+                    return new DeviceStateDelta(existing, priceBefore, coefficient);
                 })
-                .doOnError(err -> log.error("Ошибка обработки для устройства {}: {}", deviceId, err.getMessage()))
-                .onErrorMap(e -> isMongoException(e)
-                        ? new PersistenceException(e)
-                        : e);
+                .defaultIfEmpty(new DeviceStateDelta(
+                        new DeviceState(null, deviceId, coefficient, eventType, LocalDateTime.now()),
+                        1.0,
+                        coefficient
+                ))
+                .flatMap(delta -> deviceStateRepository.save(delta.state())
+                        .flatMap(saved -> {
+                            log.info("Цена обновлена для {}: {} → {}", deviceId, delta.priceBefore(), delta.priceAfter());
+                            return Mono.when(
+                                    redisService.cachePrice(deviceId, coefficient),
+                                    clickHouseWriter.recordEvent(event, delta.priceBefore(), delta.priceAfter())
+                            );
+                        }))
+                .doOnError(err -> log.error("Ошибка обработки для устройства {}: {}", deviceId, err.getMessage()));
     }
 
-    private boolean isMongoException(Throwable e) {
-        return e.getClass().getName().toLowerCase().contains("mongo")
-                || e.getClass().getName().toLowerCase().contains("dataaccess");
-    }
+    private record DeviceStateDelta(DeviceState state, double priceBefore, double priceAfter) {}
 }

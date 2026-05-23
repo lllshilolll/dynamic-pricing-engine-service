@@ -1,19 +1,15 @@
 package com.example.pricing.service.redis;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+
 @Slf4j
 @Service
 public class RedisService {
-
-    @Value("${redis.consumer.topic}")
-    private String topic;
-    @Value("${redis.consumer.group}")
-    private String group;
 
     private final ReactiveRedisTemplate<String, Object> redisTemplate;
 
@@ -21,13 +17,19 @@ public class RedisService {
         this.redisTemplate = redisTemplate;
     }
 
-    public Mono<Void> acknowledge(String messageId) {
-        return redisTemplate.opsForStream().acknowledge(topic, group, messageId)
-                .doOnSuccess(ack -> log.info("Сообщение {} подтверждено (ACK) в Redis", messageId))
+    public Mono<Void> cachePrice(String deviceId, double price) {
+        return redisTemplate.opsForValue()
+                .set("price:" + deviceId, String.valueOf(price), Duration.ofMinutes(5))
+                .doOnSuccess(v -> log.info("Цена закэширована для {}: {}", deviceId, price))
                 .onErrorResume(err -> {
-                    log.error("Ошибка подтверждения сообщения {} в Redis: {}", messageId, err.getMessage());
+                    log.error("Ошибка кэширования цены для {}: {}", deviceId, err.getMessage());
                     return Mono.empty();
                 })
                 .then();
+    }
+
+    public Mono<String> getCachedPrice(String deviceId) {
+        return redisTemplate.opsForValue().get("price:" + deviceId)
+                .map(Object::toString);
     }
 }

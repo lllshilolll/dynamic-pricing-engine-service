@@ -1,0 +1,18 @@
+server.port: 8085
+
+generator:
+  device-count: 50
+  events-per-second: 10
+  event-types: HIGH_DEMAND,LOW_STOCK,TEMPERATURE_ALERT,SALES_REPORT,DOOR_OPENED
+  target-url: http://localhost:8082/api/telemetry
+  enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  prometheus:
+    metrics:
+      export:
+        enabled: true

@@ -13,5 +13,7 @@
         <module>dto-service</module>
         <module>telemetry-ingestion-service</module>
         <module>pricing-engine-service</module>
+        <module>admin-service</module>
+        <module>telemetry-generator-service</module>
     </modules>
 </project>

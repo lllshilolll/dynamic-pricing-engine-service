@@ -1,0 +1,70 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "title": "HTTP Requests/sec",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum(rate(http_server_requests_seconds_count{uri!=\"/actuator/prometheus\"}[1m])) by (service, uri)", "legendFormat": "{{service}} {{uri}}" }
+      ],
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    },
+    {
+      "title": "HTTP Latency (p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, service))", "legendFormat": "{{service}}" }
+      ],
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    },
+    {
+      "title": "JVM Memory Used",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "jvm_memory_used_bytes{area=\"heap\"}", "legendFormat": "{{service}}" }
+      ],
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    },
+    {
+      "title": "Kafka Consumer Lag",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+      "targets": [
+        { "expr": "kafka_consumer_fetch_rate_total", "legendFormat": "{{service}}" }
+      ],
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    },
+    {
+      "title": "System CPU",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
+      "targets": [
+        { "expr": "system_cpu_usage", "legendFormat": "{{service}}" }
+      ],
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "max": 1, "min": 0, "unit": "percentunit" } }
+    },
+    {
+      "title": "Logs",
+      "type": "logs",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        { "expr": "{job=\"docker-logs\"}", "refId": "A" }
+      ],
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["spring-boot", "pricing-engine"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "Dynamic Pricing — Overview",
+  "uid": "pricing-overview"
+}

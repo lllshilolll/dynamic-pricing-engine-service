@@ -1,0 +1,7 @@
+CREATE TABLE locations (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    city VARCHAR(255) NOT NULL,
+    lat DOUBLE PRECISION,
+    lon DOUBLE PRECISION
+);
