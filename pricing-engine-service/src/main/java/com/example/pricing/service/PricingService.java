@@ -1,12 +1,14 @@
 package com.example.pricing.service;
 
+import com.example.dto.PriceChangeEvent;
 import com.example.dto.TelemetryEvent;
 import com.example.pricing.dto.DeviceState;
-import com.example.pricing.service.clickhouse.ClickHouseWriter;
 import com.example.pricing.service.redis.RedisService;
 import com.example.pricing.service.repository.DeviceStateRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -19,7 +21,10 @@ public class PricingService {
 
     private final DeviceStateRepository deviceStateRepository;
     private final RedisService redisService;
-    private final ClickHouseWriter clickHouseWriter;
+    private final ReactiveKafkaProducerTemplate<String, PriceChangeEvent> priceChangeProducer;
+
+    @Value("${kafka.topic.price-changes}")
+    private String priceChangesTopic;
 
     public Mono<Void> calculateNewPrice(TelemetryEvent event) {
         var eventType = event.getEventType();
@@ -42,9 +47,13 @@ public class PricingService {
                 .flatMap(delta -> deviceStateRepository.save(delta.state())
                         .flatMap(saved -> {
                             log.info("Цена обновлена для {}: {} → {}", deviceId, delta.priceBefore(), delta.priceAfter());
+                            PriceChangeEvent changeEvent = new PriceChangeEvent(
+                                    deviceId, delta.priceBefore(), delta.priceAfter(),
+                                    eventType, System.currentTimeMillis()
+                            );
                             return Mono.when(
                                     redisService.cachePrice(deviceId, coefficient),
-                                    clickHouseWriter.recordEvent(event, delta.priceBefore(), delta.priceAfter())
+                                    priceChangeProducer.send(priceChangesTopic, deviceId, changeEvent).then()
                             );
                         }))
                 .doOnError(err -> log.error("Ошибка обработки для устройства {}: {}", deviceId, err.getMessage()));

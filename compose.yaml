@@ -92,17 +92,6 @@ services:
     networks:
       - monitoring
 
-  tabix:
-    image: spoonest/clickhouse-tabix-web-client
-    container_name: tabix_ui
-    restart: always
-    ports:
-      - "8080:80"
-    depends_on:
-      - clickhouse
-    networks:
-      - monitoring
-
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus

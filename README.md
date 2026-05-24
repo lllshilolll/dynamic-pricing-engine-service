@@ -75,14 +75,13 @@ POST   /api/experiments/{id}/stop — завершить эксперимент
 docker compose up
 ```
 
-| Сервис | Порт | Данные |
-|--------|------|--------|
-| Redis 7 | 6379 | кэш цен, pub/sub, bloom filter |
-| MongoDB 7.0 | 27017 | `root` / `password123`, auth-db `admin` |
-| Kafka (Confluent 7.7) | 9092 | topic `telemetry.events`, replication=1 |
-| ZooKeeper | 2181 | для Kafka |
+| Сервис | Порт | Данные                                   |
+|--------|------|------------------------------------------|
+| Redis 7 | 6379 | кэш цен, pub/sub, bloom filter           |
+| MongoDB 7.0 | 27017 | `root` / `password123`, auth-db `admin`  |
+| Kafka (Confluent 7.7) | 9092 | topic `telemetry.events`, replication=1  |
 | PostgreSQL 16 | 5432 | `admin` / `admin123`, db `pricing_admin` |
-| ClickHouse 24.8 | 8123/9000 | таблица `telemetry_events` |
+| ClickHouse 24.8 | 8123/9000 | таблица `telemetry_events`               |
 
 ---
 

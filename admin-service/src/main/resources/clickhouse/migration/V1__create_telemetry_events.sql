@@ -1,7 +1,6 @@
 CREATE TABLE IF NOT EXISTS telemetry_events (
     device_id String,
     event_type String,
-    payload String,
     price_before Float64,
     price_after Float64,
     timestamp DateTime

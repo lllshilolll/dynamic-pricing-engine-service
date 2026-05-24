@@ -20,16 +20,14 @@ spring:
       auto-offset-reset: latest
       properties:
         spring.json.trusted.packages: "com.example.*"
-  clickhouse:
-    url: jdbc:clickhouse://localhost:8123/default?user=default&password=password123
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 kafka:
   topic:
     telemetry: telemetry.events
-
-clickhouse:
-  batch-size: 100
-  flush-interval-ms: 5000
+    price-changes: price.changes
 
 management:
   endpoints:
