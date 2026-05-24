@@ -1,0 +1,2 @@
+generator:
+  target-url: http://telemetry-ingestion:8082/api/telemetry

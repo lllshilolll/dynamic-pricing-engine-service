@@ -12,16 +12,17 @@
       "targets": [
         { "expr": "sum(rate(http_server_requests_seconds_count{uri!=\"/actuator/prometheus\"}[1m])) by (service, uri)", "legendFormat": "{{service}} {{uri}}" }
       ],
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+      "datasource": { "type": "prometheus", "uid": "prometheus" }
     },
     {
-      "title": "HTTP Latency (p95)",
+      "title": "HTTP Avg Latency",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "targets": [
-        { "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, service))", "legendFormat": "{{service}}" }
+        { "expr": "sum(rate(http_server_requests_seconds_sum{uri!=\"/actuator/prometheus\"}[1m])) by (service) / sum(rate(http_server_requests_seconds_count{uri!=\"/actuator/prometheus\"}[1m])) by (service)", "legendFormat": "{{service}}" }
       ],
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" } }
     },
     {
       "title": "JVM Memory Used",
@@ -30,16 +31,16 @@
       "targets": [
         { "expr": "jvm_memory_used_bytes{area=\"heap\"}", "legendFormat": "{{service}}" }
       ],
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+      "datasource": { "type": "prometheus", "uid": "prometheus" }
     },
     {
       "title": "Kafka Consumer Lag",
       "type": "stat",
       "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
       "targets": [
-        { "expr": "kafka_consumer_fetch_rate_total", "legendFormat": "{{service}}" }
+        { "expr": "kafka_consumer_fetch_manager_records_lag", "legendFormat": "{{client_id}}" }
       ],
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+      "datasource": { "type": "prometheus", "uid": "prometheus" }
     },
     {
       "title": "System CPU",
@@ -48,22 +49,60 @@
       "targets": [
         { "expr": "system_cpu_usage", "legendFormat": "{{service}}" }
       ],
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "max": 1, "min": 0, "unit": "percentunit" } }
+    },
+    {
+      "title": "Kafka Records Consumed/sec",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        { "expr": "rate(kafka_consumer_fetch_manager_records_consumed_total[1m])", "legendFormat": "{{client_id}}" }
+      ],
+      "datasource": { "type": "prometheus", "uid": "prometheus" }
+    },
+    {
+      "title": "Kafka Fetch Latency (avg)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        { "expr": "kafka_consumer_fetch_manager_fetch_latency_avg", "legendFormat": "{{client_id}}" }
+      ],
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ms" } }
     },
     {
       "title": "Logs",
       "type": "logs",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 24 },
       "targets": [
-        { "expr": "{job=\"docker-logs\"}", "refId": "A" }
+        { "expr": "{container=~\"$service\"}", "refId": "A" }
       ],
-      "datasource": { "type": "loki", "uid": "${DS_LOKI}" }
+      "datasource": { "type": "loki", "uid": "loki" }
     }
   ],
   "schemaVersion": 39,
   "tags": ["spring-boot", "pricing-engine"],
-  "templating": { "list": [] },
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "definition": "label_values({container=~\".+\"}, container)",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".+",
+        "multi": true,
+        "name": "service",
+        "options": [],
+        "query": { "qryType": 1, "query": "label_values({container=~\".+\"}, container)", "refId": "VariableQuery" },
+        "refresh": 2,
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "loki" }
+      }
+    ]
+  },
   "time": { "from": "now-1h", "to": "now" },
   "title": "Dynamic Pricing — Overview",
   "uid": "pricing-overview"

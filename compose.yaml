@@ -35,10 +35,11 @@ services:
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_NODE_ID: 1
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:29093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://:9092,DOCKER://:29092,CONTROLLER://:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,DOCKER://kafka:29092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,DOCKER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_LOG_RETENTION_HOURS: 168
@@ -145,6 +146,55 @@ services:
     depends_on:
       - prometheus
       - loki
+    networks:
+      - monitoring
+
+  telemetry-ingestion:
+    build: ./telemetry-ingestion-service
+    container_name: telemetry_ingestion
+    restart: always
+    ports:
+      - "8082:8082"
+    depends_on:
+      - kafka
+    networks:
+      - monitoring
+
+  pricing-engine:
+    build: ./pricing-engine-service
+    container_name: pricing_engine
+    restart: always
+    ports:
+      - "8081:8081"
+    depends_on:
+      - kafka
+      - mongodb
+      - redis
+    networks:
+      - monitoring
+
+  admin-service:
+    build: ./admin-service
+    container_name: admin_service
+    restart: always
+    ports:
+      - "8083:8083"
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+      - clickhouse
+    networks:
+      - monitoring
+
+  telemetry-generator:
+    build: ./telemetry-generator-service
+    container_name: telemetry_generator
+    restart: always
+    ports:
+      - "8085:8085"
+    depends_on:
+      - telemetry-ingestion
     networks:
       - monitoring
 

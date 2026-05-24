@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/pricing_admin
+  data:
+    redis:
+      host: redis
+  kafka:
+    bootstrap-servers: kafka:29092
+  clickhouse:
+    url: jdbc:clickhouse://clickhouse:8123/default?user=default&password=password123
