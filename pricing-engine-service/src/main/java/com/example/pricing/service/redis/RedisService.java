@@ -3,9 +3,12 @@ package com.example.pricing.service.redis;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.AbstractMap;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -31,5 +34,15 @@ public class RedisService {
     public Mono<String> getCachedPrice(String deviceId) {
         return redisTemplate.opsForValue().get("price:" + deviceId)
                 .map(Object::toString);
+    }
+
+    public Flux<Map.Entry<String, String>> getAllPrices() {
+        return redisTemplate.keys("price:*")
+                .flatMap(key -> redisTemplate.opsForValue().get(key)
+                        .map(value -> new AbstractMap.SimpleEntry<>(
+                                key.substring("price:".length()),
+                                value.toString()
+                        ))
+                );
     }
 }

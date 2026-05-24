@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Pricing — Device Prices</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1a1a2e; }
+        .header { background: #1a1a2e; color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 20px; font-weight: 600; }
+        .header span { font-size: 12px; opacity: 0.6; }
+        .status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+        .dot.offline { background: #ef4444; }
+        .content { max-width: 1000px; margin: 24px auto; padding: 0 24px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .stat-card { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stat-card .label { font-size: 12px; color: #888; margin-bottom: 4px; }
+        .stat-card .value { font-size: 24px; font-weight: 700; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .card-header h2 { font-size: 16px; font-weight: 600; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; }
+        .btn-primary { background: #4f46e5; color: white; }
+        .btn-primary:hover { background: #4338ca; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 10px 12px; background: #f8f9fa; font-weight: 600; color: #555; border-bottom: 1px solid #e0e0e0; }
+        td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+        tr:hover td { background: #fafafa; }
+        .price { font-weight: 700; font-size: 15px; color: #4f46e5; }
+        .price-up { color: #ef4444; }
+        .price-down { color: #22c55e; }
+        .empty { text-align: center; padding: 40px; color: #999; font-size: 14px; }
+        .updated { font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>Dynamic Pricing Engine</h1>
+            <span>Актуальные цены устройств</span>
+        </div>
+        <div class="status">
+            <div class="dot" id="status-dot"></div>
+            <span id="status-text">Подключение...</span>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="stats" id="stats"></div>
+        <div class="card">
+            <div class="card-header">
+                <h2>Цены устройств</h2>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span class="updated" id="updated"></span>
+                    <button class="btn btn-primary" onclick="loadPrices()">Обновить</button>
+                </div>
+            </div>
+            <div id="prices-table"></div>
+        </div>
+    </div>
+
+    <script>
+        const API = '';
+        let previousPrices = {};
+        const REFRESH_INTERVAL = 10000;
+
+        function setStatus(online) {
+            document.getElementById('status-dot').className = 'dot' + (online ? '' : ' offline');
+            document.getElementById('status-text').textContent = online ? 'Online' : 'Offline';
+        }
+
+        function renderStats(prices) {
+            const count = prices.length;
+            const avg = count ? (prices.reduce((s, p) => s + p.price, 0) / count).toFixed(2) : '—';
+            const max = count ? Math.max(...prices.map(p => p.price)).toFixed(2) : '—';
+            const min = count ? Math.min(...prices.map(p => p.price)).toFixed(2) : '—';
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-card"><div class="label">Устройств в кэше</div><div class="value">${count}</div></div>
+                <div class="stat-card"><div class="label">Средняя цена</div><div class="value">${avg}</div></div>
+                <div class="stat-card"><div class="label">Макс. цена</div><div class="value" style="color:#ef4444">${max}</div></div>
+                <div class="stat-card"><div class="label">Мин. цена</div><div class="value" style="color:#22c55e">${min}</div></div>`;
+        }
+
+        function priceClass(deviceId, price) {
+            const prev = previousPrices[deviceId];
+            if (prev === undefined) return 'price';
+            if (price > prev) return 'price price-up';
+            if (price < prev) return 'price price-down';
+            return 'price';
+        }
+
+        function renderTable(prices) {
+            if (!prices.length) {
+                document.getElementById('prices-table').innerHTML = '<div class="empty">Нет данных. Запустите генератор телеметрии.</div>';
+                return;
+            }
+            prices.sort((a, b) => a.deviceId.localeCompare(b.deviceId));
+            document.getElementById('prices-table').innerHTML = `<table>
+                <thead><tr><th>#</th><th>Device ID</th><th>Цена</th></tr></thead>
+                <tbody>${prices.map((p, i) => `<tr>
+                    <td>${i + 1}</td>
+                    <td><code>${p.deviceId}</code></td>
+                    <td class="${priceClass(p.deviceId, p.price)}">${p.price.toFixed(2)}</td>
+                </tr>`).join('')}</tbody></table>`;
+        }
+
+        async function loadPrices() {
+            try {
+                const res = await fetch(API + '/api/prices');
+                const prices = await res.json();
+                setStatus(true);
+                renderStats(prices);
+                renderTable(prices);
+                document.getElementById('updated').textContent = 'Обновлено: ' + new Date().toLocaleTimeString('ru');
+                previousPrices = {};
+                prices.forEach(p => previousPrices[p.deviceId] = p.price);
+            } catch (e) {
+                setStatus(false);
+                document.getElementById('prices-table').innerHTML = '<div class="empty">Не удалось подключиться к сервису</div>';
+            }
+        }
+
+        loadPrices();
+        setInterval(loadPrices, REFRESH_INTERVAL);
+    </script>
+</body>
+</html>
